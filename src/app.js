@@ -10,19 +10,39 @@ const healthRouter = require("./routes/health.routes");
 const { loadRoutes } = require("./utils/routeLoader");
 const { mountCanonicalApiRoutes } = require("./bootstrap/canonicalApiMount");
 
+function normalizeOrigin(value) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
 // Create and configure Express application instance
 function createApp() {
   const app = express();
+  const configuredOrigins = String(process.env.FRONTEND_URLS || "")
+    .split(",")
+    .map((origin) => normalizeOrigin(origin))
+    .filter(Boolean);
+  const allowAnyOrigin = configuredOrigins.length === 0;
+  const corsOptions = {
+    origin(origin, callback) {
+      // Non-browser requests may not include Origin.
+      if (!origin) return callback(null, true);
+      if (allowAnyOrigin) return callback(null, true);
+      const requestOrigin = normalizeOrigin(origin);
+      if (configuredOrigins.includes(requestOrigin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    optionsSuccessStatus: 204,
+  };
 
   // API-only: CSP is not needed; avoids interfering with some mobile WebViews
   app.use(helmet({ contentSecurityPolicy: false }));
-  // React Native / Expo: allow any origin (no browser cookie reliance for mobile)
-  app.use(
-    cors({
-      origin: true,
-      credentials: true,
-    })
-  );
+  app.use(cors(corsOptions));
+  app.options("*", cors(corsOptions));
   app.use(compression());
   app.use(cookieParser());
 
