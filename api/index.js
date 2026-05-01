@@ -18,6 +18,22 @@ async function ensureDatabaseConnection() {
 }
 
 module.exports = async (req, res) => {
-  await ensureDatabaseConnection();
+  const requestPath = String(req.url || "");
+  const isHealthRequest =
+    requestPath === "/api/health" || requestPath.startsWith("/api/health?");
+
+  // Allow health checks even if DB is temporarily unavailable/misconfigured.
+  if (!isHealthRequest) {
+    try {
+      await ensureDatabaseConnection();
+    } catch (error) {
+      return res.status(503).json({
+        success: false,
+        message: "Database connection failed.",
+        error: error?.message || "Unknown database error",
+      });
+    }
+  }
+
   return appHandler(req, res);
 };
