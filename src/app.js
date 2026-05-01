@@ -42,7 +42,7 @@ function createApp() {
   // API-only: CSP is not needed; avoids interfering with some mobile WebViews
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors(corsOptions));
-  app.options("*", cors(corsOptions));
+  app.options(/.*/, cors(corsOptions));
   app.use(compression());
   app.use(cookieParser());
 
